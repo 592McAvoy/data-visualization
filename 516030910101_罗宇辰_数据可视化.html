@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>全国少数民族人口数据统计</title>
+</head>
+<body>
+<h1>第六次人口普查——少数民族人口数据统计</h1>
+<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+    //画布大小
+    var width = 1500;
+    var height = 1000;
+    var txtWidth = 500;
+
+    //在 body 里添加一个 SVG 画布
+    var svg = d3.select("body")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    //mouseover-显示详细信息
+    function show(num){
+        var dataset=[];
+        d3.csv("population.csv", function(data){
+            data.forEach(function(d) {
+                d.male = +d.male;
+                d.female = +d.female;
+            });
+            dataset[0]=data[num].male;
+            dataset[1]=data[num].female;
+
+            //根据数据确定比例尺
+            var scale = d3.scale.linear()
+                .domain([0.95*d3.min(dataset), d3.max(dataset)])
+                .range([0, 200]);
+
+            //画出直方图
+            var rects = svg.selectAll(".MyRect")
+                .data(dataset)
+                .enter()
+                .append("rect")
+                .attr("class", ".MyRect")
+                .attr("x", 1050)
+                .attr("width", 0)
+                .attr("y",function(d,i){return i*40+400})
+                .attr("height", 38)
+                .transition()
+                .duration(500)
+                .attr("width", function(d){return scale(d);})
+                .attr("fill","purple");
+
+            //添加文字元素
+            var title = svg.selectAll(".Title")
+                .data(dataset)
+                .enter()
+                .append("g")
+                .append("text")
+                .attr("class",".Title")
+                .attr("x", 1050)
+                .attr("y",380)
+                .attr("fill","black")
+                .attr("font-family", "sans-serif")
+                .attr("font-size","40px")
+                .text(data[num].nation + ": "+data[num].amount);
+
+            var texts = svg.selectAll(".MyText")
+                .data(dataset)
+                .enter()
+                .append("g")
+                .append("text")
+                .attr("class",".MyText")
+                .attr("x", function(d){return scale(d)+1060;})
+                .attr("y",function(d,i){return i*40+400})
+                .attr("fill","black")
+                .attr("dx",0)
+                .attr("dy",25)
+                .attr("font-family", "sans-serif")
+                .attr("font-size","25px")
+                .text(function(d,i){
+                    if(i==0)
+                        return"男性: "+d;
+                    return "女性: "+d;
+                })
+
+        })
+    }
+
+    //mouseout-清除信息
+    function clear(){
+        svg.selectAll("rect").remove();
+        svg.selectAll("g").remove();
+    }
+
+    //画气泡图
+    d3.csv("population(part).csv", function(data) {
+        var dataobj = { children: data };
+
+        var pack = d3.layout.pack()
+            .padding(3)
+            .size([width-txtWidth,height])
+            .sort(function(a,b) { return b.value - a.value; });//使由内到外泡泡大小递减
+
+        var nodes = pack.nodes(dataobj)
+            .filter(function(it) {
+                return it.parent;
+            });
+
+        var color = d3.scale.category20();
+
+        var bubble = svg.selectAll(".Bubbles")
+            .data(nodes)                         // 绑定资料
+            .enter()
+            .append("circle")
+            .attr("class","Bubbles")
+            .attr({
+                cx: function(d) { return d.x; }, // 用 x,y 做圆心
+                cy: function(d) { return d.y; },
+                r:0,
+                fill: function(d) { return color(d.nation); }
+            })
+            .on("mouseover",function(d,i){       //mouseover效果
+                d3.select(this)
+                    .transition()
+                    .duration(400)
+                    .attr("fill","purple");
+                show(i);
+            })
+            .on("mouseout",function(d,i){       //mouseout效果
+                d3.select(this)
+                    .transition()
+                    .duration(500)
+                    .attr("fill",function(d) { return color(d.nation);});
+                clear();
+            })
+            .transition()
+            .delay(function(d,i){
+                return i * 100;
+            })
+            .ease("bounce")
+            .attr("r", function(d){return d.r;}); //用r作为半径
+
+        //泡泡内的信息
+        var content = svg.selectAll("text")
+            .data(nodes)
+            .enter()
+            .append("text")
+            .transition()
+            .delay(function(d,i){
+                return i * 100;
+            })
+            .attr({
+                x: function(d) { return d.x; },
+                y: function(d) { return d.y; },
+                "text-anchor": "middle",
+            })
+            .attr("font-family", "sans-serif")
+            .attr("font-size", function(d){
+                var size = d.r*0.3;
+                if(size>13) return size+"px";
+                return "13px";
+            })
+            .attr("fill", "black")
+            .text(function(d)  { return (d.value>50000?d.nation:""); });//
+    });
+    /*
+     * Created by lyc on 2017/7/14.
+     */
+
+</script>
+</body>
+</html>
